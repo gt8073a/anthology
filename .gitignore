@@ -18,6 +18,9 @@ books/*/reviews/
 knowledge/
 npcs/
 
+# Internal / build notes
+anthology-kt.md
+
 # OS
 .DS_Store
 Thumbs.db
