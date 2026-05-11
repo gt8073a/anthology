@@ -1,0 +1,23 @@
+# Obsidian
+.obsidian/workspace
+.obsidian/workspace.json
+.obsidian/plugins/
+.obsidian/themes/
+
+# Runtime state — personal, changes every hand
+books/*/state/
+books/*/world/news_cache.json
+
+# Inbox — personal clips, not for sharing
+inbox/
+
+# Reviews — personal play history
+books/*/reviews/
+
+# Knowledge — personal wiki, opt-in to commit
+knowledge/
+npcs/
+
+# OS
+.DS_Store
+Thumbs.db
