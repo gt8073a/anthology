@@ -52,3 +52,9 @@ Rules:
 Log to progress.json under includes_completed.
 Return to active book. If this include was run before a first dive, note it in the opening
 hand so the GM can surface the writing system naturally early (a sign, a name badge, a note).
+
+On Load
+Message: Letters/glyphs quick reference loaded. Get ready to read! 🔤
+
+On Error
+Message: Letters quick reference failed to load. Check include formatting.

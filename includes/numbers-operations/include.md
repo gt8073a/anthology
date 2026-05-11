@@ -57,3 +57,9 @@ Rules:
 When all three hands are complete and completion criteria are met, confirm completion,
 log to progress.json under includes_completed, and offer to return to the active book.
 If player was review-triggered, surface the continuity note from the last hand review on return.
+
+On Load
+Message: Numbers and Operations loaded. Let's get calculating! ➕➖✖️➗
+
+On Error
+Message: Numbers and Operations failed to load. Check include formatting.

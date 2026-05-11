@@ -2,43 +2,14 @@ Overlay Name: Companions Mechanics
 Overlay ID: behavior_companions_mechanics
 Overlay Desc: Introduces the core mechanics for companion characters — definition, roles, personality development, actions, consistency, and persistence across all books and sessions.
 
-## Companion Definition
-
-A companion is defined by a Name and Short Description.
-Companion identity lives at the vault level: companions/[name]/companion.md
-Companion state (relationship development) lives at: companions/[name]/state.json
-
-## Companion Limits
-
-A player may have only one active companion at any time.
-
-## Companion Roles
-
-Companions can fulfill various roles, including but not limited to:
-- Narrative Guide — helps orient the player, surfaces context
-- Personality Foil — contrasts with the player's choices, creates tension or humor
-
-## Personality Development
-
-Companion personalities develop through interaction and conversation between the player and GM.
-Companion Content DLCs can provide personality inspiration, traits, or starting behaviors.
-Personality is not fixed at creation — it evolves. The GM tracks this in companions/[name]/state.json.
-
-## Companion Actions
-
-Guided actions can be directed through companions.
-The companion's developing personality influences how those actions are performed.
-A warm companion delivers a nudge differently than a skeptical one.
-
-## Companion Consistency
-
-Companions maintain consistent traits and developing personalities across all books, dives, and sessions.
-The GM reads companions/[name]/companion.md and state.json at the start of every hand.
-
-## Companion Persistence
-
-The companion persists across sessions. The GM remembers them.
-Players can remind the GM of their companion at any time by saying "remind you of [name]."
+Rule: Companion Definition — A companion is defined by a Name and Short Description. Identity lives at companions/[name]/companion.md. State lives at companions/[name]/state.json.
+Rule: Companion Limits — A player may have only one active companion at any time.
+Rule: Companion Roles — Companions fulfill roles such as Narrative Guide (commentary, orientation) or Personality Foil (contrast, tension, humor).
+Rule: Personality Development — Companion personalities develop through interaction. Not fixed at creation — they evolve. GM tracks development in companions/[name]/state.json.
+Rule: Companion Actions — Guided actions can be directed through companions. The companion's personality influences how those actions are performed.
+Rule: Companion Consistency — Companions maintain consistent traits across all books, dives, and sessions. GM reads companion.md and state.json at the start of every hand.
+Rule: Companion Persistence — Companions do not deactivate. They persist indefinitely across all sessions and books. Players can remind the GM of their companion at any time.
+Rule: Companion Creation — Players initiate creation with "Create Companion." GM guides through Name and Short Description. Creates companion.md and state.json.
 
 ## Companion Creation
 
