@@ -31,6 +31,21 @@ Anthology/
     culture/                      ← global culture knowledge files
     domain/                       ← global domain knowledge files
     synthesized/                  ← cross-pillar insights
+  includes/
+    numbers-operations/
+      include.md                  ← focused content module, injectable into any book
+    letters-quickref/
+      include.md
+  overlays/
+    structured-learning/
+      overlay.md                  ← modifies card engine for lesson mode; auto-activates with includes
+    companions-mechanics/
+      overlay.md                  ← companion framework; cross-book, cross-session persistence
+  companions/
+    jumbo/
+      dlc.md                      ← companion content DLC (definition, personality, hut override)
+      companion.md                ← generated on install: identity, traits, current personality
+      state.json                  ← generated on install: relationship development
   npcs/
     tehran/
       dariush.md                  ← persistent NPC identity (who they are)
@@ -117,7 +132,7 @@ Bootstraps a book for play. Run once per book, or to reset.
      3–5 NPC identity files in `npcs/[city]/` appropriate to the book and city,
      then reference them here.
    - `dive.json` — language, city, narrative_register, role (prompt user), seniority (prompt user), fluency (prompt user), mode (Standard default), active_book
-   - `progress.json` — curriculum_stage: "intro", words_seen: [], words_mastered: [], situations_completed: [], ready_to_promote: false
+   - `progress.json` — curriculum_stage: "intro", words_seen: [], words_mastered: [], situations_completed: [], includes_completed: [], includes_suggested: [], ready_to_promote: false
 7. Scaffold `world/`:
    - `news_cache.json` — empty array, last_fetched: null
    - `office.json` — empty rumors array, empty events array
@@ -242,6 +257,24 @@ Displays the most recent hand review from `reviews/`.
 
 ---
 
+### `Create Companion`
+
+Only available when companions-mechanics overlay is active.
+Guide the player through naming their companion and writing a short description.
+Create `companions/[name]/companion.md` and initialize `companions/[name]/state.json`.
+One companion at a time — if one exists, ask the player to confirm replacement.
+
+### The Companion's Hut
+
+Only available when companions-mechanics overlay is active.
+GM detects entry intent from natural language — no exact command required.
+On entry: pause the active hand, save state, enter the Hut.
+Inside: free interaction, no mechanics, no scoring.
+Isolation rule: everything said inside is forgotten on exit unless the player marks it persistent.
+On exit: resume the paused hand exactly where it was left.
+
+---
+
 ### `/book [name]`
 
 Switches the active book. Updates `active_book` in dive.json.
@@ -297,6 +330,9 @@ Save as `reviews/YYYY-MM-DD-hand-N.md`.
 
 ## Continuity Notes
 [open threads, unresolved situations, NPC states to carry into next hand]
+
+## Suggested Includes
+[includes recommended based on patterns observed this hand — e.g. "numbers missed 3 times: numbers-operations"]
 ```
 
 ---
@@ -341,6 +377,52 @@ When sources conflict, note the conflict explicitly:
 ```markdown
 Note: [Source A] describes X. [Source B] describes the opposite in similar contexts.
 Conflict unresolved — both patterns may be regionally or contextually valid.
+```
+
+---
+
+## Includes
+
+Includes are focused content modules — vocabulary drills, grammar units, concept reviews — that inject into any active book on demand or on suggestion. They are not separate books. They run inside the book's world context.
+
+### Two trigger paths
+
+**Player-invoked:** Player says "I want to go over numbers" or "run the numbers include."
+- Pause the current book context.
+- Load and run the include using the active book's language, city, and NPC context.
+- Return to the book when complete.
+
+**Review-triggered:** Hand review identifies a repeated gap (e.g., numbers missed 3+ times).
+- Add the include to "Suggested Includes" in the hand review.
+- At the start of the next dive, surface the suggestion: "Your last review flagged numbers. Want to run that include before diving?"
+- Player confirms or skips.
+
+### How includes run
+
+- The include provides structure (learning goals, hands as units, progression).
+- The active book provides context (language, city, NPCs, narrative register).
+- An include hand is NOT a 5-card story. Cards are pacing units only — suit and value are irrelevant.
+- When an include runs, the structured-learning overlay activates automatically. Restore standard card behavior on return.
+- When complete, log the include in `progress.json` under `includes_completed`.
+
+### Include file format
+
+```markdown
+Include Name: [name]
+Include ID: [id]
+Include Desc: [short description]
+
+## Learning Goals
+[what the player will be able to do after completing this include]
+
+## Hands
+[progressive units — each with vocabulary targets, exercise rules, age-group adaptations]
+
+## Completion Criteria
+[what signals the include is done]
+
+## Return
+[how to signal completion and return to the active book]
 ```
 
 ---
