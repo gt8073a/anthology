@@ -1,6 +1,6 @@
 ---
 name: anthology-operator
-description: Teaches Claude Code how to operate the Anthology vault — execute commands, compose the GM runtime, manage state, process inbox, and generate hand reviews.
+description: Teaches Claude Code and Cowork how to operate the Anthology vault — execute commands, compose the GM runtime, manage state, process inbox, and generate hand reviews.
 ---
 
 # Anthology Operator
@@ -16,8 +16,8 @@ Read it before executing any command. It is the source of truth for how everythi
 |------|---------|
 | Anthology | The game system |
 | Book | A world defined by language + culture + domain (e.g. farsi-workplace) |
-| Dive | One sitting — one or more hands. 3–5 hands is the sweet spot before cohesion softens. |
-| Hand | One short story, five cards |
+| Dive | A persistent storyline within a book (e.g. "work", "daily-life"). Has its own deck, progress, NPCs, and narrative history. You can have multiple dives per book. |
+| Hand | One short story, five cards. Played within a dive. |
 
 ---
 
@@ -25,36 +25,37 @@ Read it before executing any command. It is the source of truth for how everythi
 
 ```
 Anthology/
-  inbox/                          ← user drops raw clips here
+  anthology.json                    ← game-level state: active_book, active_dive, overlays, companion
+  inbox/                            ← user drops raw clips here
   knowledge/
-    language/                     ← global language knowledge files
-    culture/                      ← global culture knowledge files
-    domain/                       ← global domain knowledge files
-    synthesized/                  ← cross-pillar insights
+    language/                       ← global language knowledge files
+    culture/                        ← global culture knowledge files
+    domain/                         ← global domain knowledge files
+    synthesized/                    ← cross-pillar insights
+  assets/                           ← vault-level assets (cross-book)
+    npcs/
+      personal/
+        bff.md                      ← personal NPCs that follow the player everywhere
+    places/                         ← vault-level places (rare)
+    topics/                         ← vault-level conversation threads
+    companions/
+      jumbo/
+        dlc.md                      ← companion content DLC
+        companion.md                ← generated on install
+        state.json                  ← relationship development
   includes/
     numbers-operations/
-      include.md                  ← focused content module, injectable into any book
+      include.md
     letters-quickref/
       include.md
   overlays/
     structured-learning/
-      overlay.md                  ← modifies card engine for lesson mode; auto-activates with includes
+      overlay.md
     companions-mechanics/
-      overlay.md                  ← companion framework; cross-book, cross-session persistence
-  companions/
-    jumbo/
-      dlc.md                      ← companion content DLC (definition, personality, hut override)
-      companion.md                ← generated on install: identity, traits, current personality
-      state.json                  ← generated on install: relationship development
-  npcs/
-    tehran/
-      dariush.md                  ← persistent NPC identity (who they are)
-      maryam.md
-    san-jose/
-      ...
+      overlay.md
   books/
     [book-id]/
-      dlc.md                      ← book config + curriculum seeds
+      dlc.md                        ← book config + curriculum seeds
       curriculum/
         intro/
           vocabulary.md
@@ -68,47 +69,107 @@ Anthology/
           vocabulary.md
           situations.md
           cultural.md
-      state/
-        deck.json
-        npcs.json                 ← relationship state only (trust, memories per book)
-        dive.json
-        progress.json
-      world/
-        news_cache.json
-        office.json
-      reviews/                    ← one .md per completed hand
+      assets/                       ← book-level assets (city-native, cross-dive)
+        npcs/
+          [city]/
+            dariush.md              ← NPC identity: who they are
+        places/
+          cafe-foo.md               ← places that appear across dives
+        topics/
+          local-news.md             ← recurring conversation topics
+        world/
+          news_cache.json           ← city news, timestamped, expires
+      dives/
+        [dive-id]/
+          dive.json                 ← language, city, role, seniority, fluency, mode, narrative_register
+          deck.json                 ← shuffled deck state
+          npcs.json                 ← relationship state (trust, memories) per dive
+          progress.json             ← curriculum stage, words seen/mastered, includes
+          log.md                    ← running narrative summary of this dive
+          world/
+            office.json             ← dive-specific gossip, events, rumors
+          reviews/
+            YYYY-MM-DD-hand-N.md
   skill/
-    SKILL.md                      ← this file
+    SKILL.md                        ← this file
+```
+
+---
+
+## `anthology.json`
+
+Game-level state. Lives at the vault root.
+
+```json
+{
+  "active_book": "farsi-workplace",
+  "active_dive": "work",
+  "installed_overlays": ["behavior_companions_mechanics"],
+  "active_companion": "jumbo"
+}
 ```
 
 ---
 
 ## Commands
 
-### `/anthology init`
+### `/anthology play [book] [dive]`
+
+The primary command. Loads everything and starts the next hand.
+
+`/anthology play` — resume active book + dive from `anthology.json`
+`/anthology play farsi` — switch to farsi-workplace, resume active dive
+`/anthology play farsi daily-life` — switch to farsi-workplace, daily-life dive
+
+**If `anthology.json` does not exist** → first time ever → fall through to `/anthology init`.
+**If named dive does not exist** → prompt: "That dive doesn't exist yet. Create it?"
+
+**Load sequence:**
+
+1. Read `anthology.json` — active_book, active_dive, overlays, companion
+2. Read `books/[active_book]/dlc.md` — DLC rules apply for this session
+3. Read `books/[active_book]/dives/[active_dive]/dive.json` — player config
+4. Read dive state: `deck.json`, `npcs.json`, `progress.json`
+5. Read `books/[active_book]/assets/npcs/[city]/` — NPC identities for book-level NPCs
+   For visiting NPCs (home_city ≠ current city), load from their home city
+6. Read `assets/npcs/personal/` — vault-level personal NPCs
+7. Load active companion from `assets/companions/[name]/` if set in anthology.json
+8. Apply installed overlay behaviors from anthology.json
+9. Load relevant knowledge — language, culture, domain (subset only, not everything)
+10. Load curriculum stage files from `books/[active_book]/curriculum/[stage]/`
+11. Read `books/[active_book]/assets/world/news_cache.json` — filter expired entries
+12. Read `books/[active_book]/dives/[active_dive]/world/office.json` — dive-specific events
+13. Read `dives/[active_dive]/log.md` — narrative summary of this dive so far
+14. Read most recent file in `dives/[active_dive]/reviews/` — Continuity Notes
+15. Search reviews across ALL dives and books for situations that rhyme with the current context — inject light callbacks through NPC dialogue if found
+16. Compose GM context and start the hand
+
+---
+
+### `/anthology init [book]`
 
 Bootstraps a book for play. Run once per book, or to reset.
 
 **Steps:**
 
-1. Identify the target book directory (current working directory or explicit name).
-2. Read `dlc.md` — extract Runtime Config and Curriculum Seeds.
-3. Prompt the user for `language` (default from dlc.md) and `city`. Wait for each response before asking the next.
-4. If `narrative_register` is set in dlc.md, carry it forward. Do not prompt for it.
-5. Generate `curriculum/` from the Curriculum Seeds in dlc.md:
+1. Identify the target book (argument or prompt).
+2. Read `books/[book]/dlc.md` — extract Runtime Config and Curriculum Seeds.
+3. Prompt for `language` (pre-filled from dlc.md, confirm or change) and `city`. One at a time.
+4. Carry `narrative_register` from dlc.md. Do not prompt.
+5. Generate `curriculum/` from Curriculum Seeds:
    - For each stage (intro, midgame, endgame), create three files:
      - `vocabulary.md` — words, script, transliteration, meaning, example usage
-     - `situations.md` — playable books with goal, tension, decision point
+     - `situations.md` — playable situations with goal, tension, decision point
      - `cultural.md` — cultural patterns, norms, etiquette with source + confidence
-   - Expand the seeds into full content. Seeds are few-shot instructions, not the final content.
-   - Each vocabulary entry format:
+   - Expand seeds into full content. Seeds are few-shot instructions, not final content.
+   - Vocabulary entry format:
      ```
      ## [word in script] ([transliteration] — [meaning])
      Used when: [context]
      Example: [sentence using the word naturally]
      Stage: intro | midgame | endgame
      ```
-   - Each situation entry format:
+   - Situation entry format:
      ```
      ## [Situation title]
      Goal: [what the player is trying to accomplish]
@@ -117,143 +178,82 @@ Bootstraps a book for play. Run once per book, or to reset.
      Cultural note: [what cultural knowledge is relevant]
      Vocabulary: [words from this stage that should surface]
      ```
-   - Each cultural entry format:
+   - Cultural entry format:
      ```
      ## [Pattern name]
      [Description — 2-4 sentences, no stereotypes, prefer tendencies over rules]
      Source: curriculum seed
      Confidence: medium
      ```
-6. Scaffold `state/`:
+6. Scaffold `books/[book]/assets/`:
+   - `world/news_cache.json` — empty array, last_fetched: null
+   - `npcs/[city]/` — create 3–5 NPC identity files appropriate to book and city
+7. Prompt for first dive name (default: "main"). Create `books/[book]/dives/[dive]/`:
+   - `dive.json` — language, city, narrative_register, role (prompt), seniority (prompt), fluency (prompt), mode (Standard default)
    - `deck.json` — shuffled 52-card deck, all in `remaining`, `played` empty
-   - `npcs.json` — relationship state only. For each NPC active in this book:
-     `{ "id": "dariush", "city": "tehran", "trust": "neutral", "memory": [] }`
-     Check `npcs/[city]/` for existing NPCs first. If none exist for this city, create
-     3–5 NPC identity files in `npcs/[city]/` appropriate to the book and city,
-     then reference them here.
-   - `dive.json` — language, city, narrative_register, role (prompt user), seniority (prompt user), fluency (prompt user), mode (Standard default), active_book
+   - `npcs.json` — reference book-level NPCs with trust: neutral, memory: []
    - `progress.json` — curriculum_stage: "intro", words_seen: [], words_mastered: [], situations_completed: [], includes_completed: [], includes_suggested: [], ready_to_promote: false
-7. Scaffold `world/`:
-   - `news_cache.json` — empty array, last_fetched: null
-   - `office.json` — empty rumors array, empty events array
-8. Ensure `reviews/` directory exists (empty).
-9. Confirm to the user: book is ready, session values, starting curriculum stage.
+   - `log.md` — empty, with header
+   - `world/office.json` — empty rumors and events
+   - `reviews/` — empty directory
+8. Write `anthology.json` — set active_book and active_dive.
+9. Confirm to the user: book is ready, config values, starting curriculum stage.
 
-**Prompt order for dive.json:**
-1. Language (pre-filled from dlc.md, confirm or change)
+**Prompt order:**
+1. Language (pre-filled, confirm or change)
 2. City
-3. Role (list available roles from dlc.md)
+3. Role (list from dlc.md)
 4. Seniority (Junior / Mid / Senior / Lead / Director)
 5. Fluency (Basic / Mid / Fluent)
 6. Mode (Standard default — offer options)
+7. First dive name (default: "main")
 
 ---
 
-### `/process inbox`
+### `/anthology inbox`
 
 Reads unprocessed files from `inbox/` and promotes knowledge into the vault.
 
 **Steps:**
 
-1. Read all files in `inbox/` that do not have `processed: true` in their frontmatter.
-2. For each file, classify its content across the three pillars:
+1. Read all files in `inbox/` without `processed: true` in frontmatter.
+2. Classify each file across the three pillars:
    - **Language** — vocabulary, grammar, sentence structures, pronunciation, writing systems
    - **Culture** — social norms, communication patterns, etiquette, relationship dynamics
    - **Domain** — professional terminology, workflows, role expectations, technical concepts
-   - **News** — time-sensitive events, headlines, current affairs (does NOT belong in knowledge/)
-3. For each durable insight (language, culture, or domain):
-   - Strip clickbait framing. Preserve the underlying signal.
-   - Write to the appropriate `knowledge/[pillar]/[file].md`
-   - Format:
-     ```
-     ## [Pattern or term]
-     [Description — nuanced, avoids stereotypes, uses "in some contexts..." framing]
-     Source: inbox/[filename]
-     Confidence: low | medium | high
-     ```
-   - If a related entry already exists, update it. Note corroboration or conflict.
-   - If it conflicts with an existing entry, note the conflict — do not pick a winner.
-   - Confidence rises when multiple independent sources agree.
+   - **News** — time-sensitive events, headlines, current affairs
+3. For each durable insight:
+   - Strip clickbait framing. Preserve the signal.
+   - Write to `knowledge/[pillar]/[file].md`
+   - Format: `## [title]`, body, `Source: inbox/[filename]`, `Confidence: low | medium | high`
+   - Update existing entries if related. Note corroboration or conflict. Never pick a winner.
    - Flag if relevant to the active book's current curriculum stage.
 4. For news/time-sensitive content:
-   - Write to `books/[active]/world/news_cache.json`
+   - Write to `books/[active_book]/assets/world/news_cache.json`
    - Format: `{ "headline": "...", "summary": "...", "source": "...", "date": "YYYY-MM-DD", "expires": "YYYY-MM-DD", "relevance": "..." }`
-   - Set expiry ~2 weeks out unless clearly longer-lived.
-5. Mark the inbox file as processed by adding `processed: true` to its frontmatter.
-6. Report to user: what was found, where it was routed, what curriculum items were flagged.
+   - Expiry ~2 weeks unless longer-lived.
+5. Mark inbox file as processed: add `processed: true` to frontmatter.
+6. Report: what was found, where routed, what curriculum items flagged.
 
-**Classification rules:**
-- A durable cultural pattern → `knowledge/culture/`
-- A grammar rule or vocabulary list → `knowledge/language/`
-- A workflow, role expectation, or domain concept → `knowledge/domain/`
-- A news headline, current event, or time-stamped happening → `world/news_cache.json`
-- Content that spans pillars → split it. Route each piece to the right destination.
-- When in doubt between durable and news: ask "will this still be true in two years?" If yes, knowledge/. If no, news_cache.
+**Classification rule:** Ask "will this still be true in two years?" Yes → knowledge/. No → news_cache.
 
 ---
 
-### `/hand`
+### `/anthology status`
 
-Starts a new hand in the active book.
-
-**Steps:**
-
-1. **Load state** — read all of the following:
-   - `state/dive.json` — language, city, role, seniority, fluency, mode, narrative_register
-   - `state/progress.json` — curriculum stage, words seen/mastered, situations completed
-   - `state/deck.json` — draw 5 cards from `remaining`, move them to `played`
-   - `state/npcs.json` — relationship state (trust, memories per book)
-   - For each NPC in npcs.json, load their identity from `npcs/[city]/[id].md`
-     If the NPC is visiting (home_city ≠ current city), load from `npcs/[home_city]/[id].md`
-   - `world/news_cache.json` — filter out expired entries
-   - `world/office.json` — current rumors and events
-   - Most recent file in `reviews/` (if any) — read Continuity Notes
-   - Search `reviews/` across ALL books for past situations that rhyme with the
-     current hand's likely context (same domain, similar tension). Inject light callbacks
-     if a relevant match exists — surface it through NPC dialogue, not narration.
-
-2. **Load knowledge** — do NOT load everything. Load only what's relevant:
-   - `knowledge/language/[language].md` — vocabulary and grammar relevant to the current curriculum stage
-   - `knowledge/culture/[culture].md` — cultural patterns relevant to the book
-   - `knowledge/domain/[domain].md` — domain concepts relevant to the player's role
-   - `curriculum/[stage]/vocabulary.md` — words in scope for this stage
-   - `curriculum/[stage]/situations.md` — situations in scope for this stage
-   - `curriculum/[stage]/cultural.md` — cultural notes in scope for this stage
-
-3. **Compose GM context** — assemble the runtime prompt from the loaded pieces:
-   - Player identity: role, seniority, fluency, city
-   - Cultural voice: narrative_register (from session or dlc.md default)
-   - Active vocabulary: words in scope, words already seen vs. new
-   - NPC roster: names, roles, current trust levels, relevant memories
-   - Recent events: 2–3 items from news_cache, 1–2 from office rumors (weave in naturally)
-   - Continuity: open threads from last hand review
-   - DLC rules: all rules from dlc.md Game Master Instructions
-
-4. **Run the hand** per base game rules + DLC rules:
-   - Deal 5 cards. First 2 face up, next 3 face down.
-   - Weave a short story around all 5 cards before play begins.
-   - Apply the narrative_register voice throughout.
-   - Surface curriculum vocabulary naturally — in NPC dialogue, signage, documents.
-   - Apply cultural patterns from knowledge/ — chai, indirectness, trust shifts, etc.
-   - Track trust changes per NPC as play unfolds.
-   - Enforce fluency-based final challenge (Basic / Mid / Fluent).
-
-5. **At hand end** — generate hand review and update state:
-   - See `/hand review` section below for review format.
-   - Save review to `reviews/[YYYY-MM-DD]-hand-[n].md`
-   - Update `state/npcs.json` — apply trust changes
-   - Update `state/deck.json` — remaining cards after this hand
-   - Update `state/progress.json`:
-     - Add new words to `words_seen`
-     - Promote to `words_mastered` if player demonstrated recall + comfort
-     - Add completed situation to `situations_completed`
-     - Check promotion criteria (see Curriculum Promotion below)
+Reports current state:
+- Active book and dive
+- Curriculum stage and promotion readiness
+- NPC trust levels
+- Words seen vs. mastered
+- Installed overlays and active companion
+- Suggested includes (if any)
 
 ---
 
-### `/hand review`
+### `/anthology review`
 
-Displays the most recent hand review from `reviews/`.
+Displays the most recent hand review from the active dive's `reviews/`.
 
 ---
 
@@ -261,8 +261,8 @@ Displays the most recent hand review from `reviews/`.
 
 Only available when companions-mechanics overlay is active.
 Guide the player through naming their companion and writing a short description.
-Create `companions/[name]/companion.md` and initialize `companions/[name]/state.json`.
-One companion at a time — if one exists, ask the player to confirm replacement.
+Create `assets/companions/[name]/companion.md` and initialize `assets/companions/[name]/state.json`.
+One companion at a time — if one exists, confirm replacement first.
 
 ### The Companion's Hut
 
@@ -275,23 +275,18 @@ On exit: resume the paused hand exactly where it was left.
 
 ---
 
-### `/book [name]`
-
-Switches the active book. Updates `active_book` in dive.json.
-If the named book has not been initialized, prompt the user to run `/anthology init`.
-
----
-
 ## Hand Review Format
 
-Save as `reviews/YYYY-MM-DD-hand-N.md`.
+Save as `books/[book]/dives/[dive]/reviews/YYYY-MM-DD-hand-N.md`.
 
 ```markdown
 # Hand Review — [Title]
 
 **Date:** YYYY-MM-DD
+**Book:** [book-id]
+**Dive:** [dive-id]
 **Role:** [role] — [seniority]
-**Setting:** [location within book, city]
+**Setting:** [location, city]
 **Fluency:** [Basic | Mid | Fluent]
 **Mode:** [Standard | Immersive | Quick | Voice]
 
@@ -332,8 +327,30 @@ Save as `reviews/YYYY-MM-DD-hand-N.md`.
 [open threads, unresolved situations, NPC states to carry into next hand]
 
 ## Suggested Includes
-[includes recommended based on patterns observed this hand — e.g. "numbers missed 3 times: numbers-operations"]
+[includes flagged by patterns this hand — e.g. "numbers missed 3 times: numbers-operations"]
 ```
+
+After saving the review, update `dives/[dive]/log.md` — append a short paragraph summarizing what happened this hand. Broad strokes only. Running narrative, not a transcript.
+
+---
+
+## Dive Log Format
+
+`books/[book]/dives/[dive]/log.md` — a running narrative summary of the entire dive.
+
+Updated after every hand. Never a transcript — a "story so far."
+
+```markdown
+# [Dive name] — Dive Log
+
+## [Book name] | [City] | [Role]
+
+[Running narrative — updated after each hand. Broad strokes: what happened, where relationships
+stand, what's unresolved. A few paragraphs total. The GM reads this for continuity before each
+hand. The most recent hand review has the fine detail; this has the shape of the whole story.]
+```
+
+When `/anthology play` loads, the GM reads `log.md` for broad context and the most recent review for fine detail. Together they replace the need for a full chat transcript.
 
 ---
 
@@ -353,13 +370,11 @@ Save as `reviews/YYYY-MM-DD-hand-N.md`.
 - At least 4 midgame situations completed
 - At least 3 cultural patterns surfaced and engaged with
 
-**How to check:** After each hand, evaluate `progress.json` against the above. If criteria are met, set `ready_to_promote: true` and notify the player. Do not auto-promote — let the player confirm.
+After each hand, evaluate against the above. If criteria met, set `ready_to_promote: true` and notify the player. Do not auto-promote — let the player confirm.
 
 ---
 
 ## Knowledge File Conventions
-
-All entries in `knowledge/` follow this pattern:
 
 ```markdown
 ## [Entry title]
@@ -368,101 +383,57 @@ Source: [inbox/filename | curriculum seed | external research]
 Confidence: low | medium | high
 ```
 
-**Confidence levels:**
-- `low` — single source, popular press, anecdote
-- `medium` — multiple consistent sources, or one authoritative source
-- `high` — multiple independent sources, strong corroboration
+**Confidence:** `low` = single/popular source. `medium` = multiple consistent or one authoritative. `high` = multiple independent sources.
 
-When sources conflict, note the conflict explicitly:
-```markdown
-Note: [Source A] describes X. [Source B] describes the opposite in similar contexts.
-Conflict unresolved — both patterns may be regionally or contextually valid.
-```
+When sources conflict, note it explicitly. Do not pick a winner.
 
 ---
 
 ## Includes
 
-Includes are focused content modules — vocabulary drills, grammar units, concept reviews — that inject into any active book on demand or on suggestion. They are not separate books. They run inside the book's world context.
+Focused content modules that inject into any active book on demand or on suggestion.
 
-### Two trigger paths
+**Player-invoked:** "I want to go over numbers" → pause book, run include in book's context, return.
+**Review-triggered:** Hand review flags a gap → suggest include at start of next dive.
 
-**Player-invoked:** Player says "I want to go over numbers" or "run the numbers include."
-- Pause the current book context.
-- Load and run the include using the active book's language, city, and NPC context.
-- Return to the book when complete.
-
-**Review-triggered:** Hand review identifies a repeated gap (e.g., numbers missed 3+ times).
-- Add the include to "Suggested Includes" in the hand review.
-- At the start of the next dive, surface the suggestion: "Your last review flagged numbers. Want to run that include before diving?"
-- Player confirms or skips.
-
-### How includes run
-
-- The include provides structure (learning goals, hands as units, progression).
-- The active book provides context (language, city, NPCs, narrative register).
-- An include hand is NOT a 5-card story. Cards are pacing units only — suit and value are irrelevant.
-- When an include runs, the structured-learning overlay activates automatically. Restore standard card behavior on return.
-- When complete, log the include in `progress.json` under `includes_completed`.
-
-### Include file format
-
-```markdown
-Include Name: [name]
-Include ID: [id]
-Include Desc: [short description]
-
-## Learning Goals
-[what the player will be able to do after completing this include]
-
-## Hands
-[progressive units — each with vocabulary targets, exercise rules, age-group adaptations]
-
-## Completion Criteria
-[what signals the include is done]
-
-## Return
-[how to signal completion and return to the active book]
-```
+When an include runs, the structured-learning overlay activates automatically. Restore standard behavior on return. Log completion in `progress.json` under `includes_completed`.
 
 ---
 
 ## NPC Architecture
 
-NPCs have two layers: **identity** (who they are) and **relationship state** (how they relate to the player in a specific book).
+Three tiers. Scope determines where the NPC lives and where they can appear.
 
-### Identity — `npcs/[city]/[id].md`
+### Vault level — `assets/npcs/personal/`
+Personal NPCs that follow the player across all books and cities.
+Examples: the player's spouse, a close friend who travels with them.
+No city restriction. Appear anywhere.
 
-Persistent. Lives at the vault level. Contains:
-- Name, city, role/profession
-- Personality, speech patterns, quirks
-- Background, relationships to other NPCs
-- Home language and any secondary languages
+### Book level — `books/[book]/assets/npcs/[city]/`
+City-native NPCs. Appear in any dive within a book set in their city.
+Can cross dives (Dariush at the office and at Cafe Foo after work).
+Can travel — see Travel section below.
 
-Identity does not change between books. It is who the person is.
+### Dive level — referenced in `dives/[dive]/npcs.json`
+Dive-specific NPCs that don't naturally appear elsewhere.
+Examples: office receptionist, grocery store clerk.
+Defined inline in npcs.json, not as separate identity files.
 
-### Relationship State — `books/[name]/state/npcs.json`
+### Relationship State — `dives/[dive]/npcs.json`
 
-Per-book. Changes every hand. Contains:
-- `id` — references the identity file
-- `city` — their home city (may differ from book city if traveling)
-- `trust` — guarded | neutral | warm | collaborative
-- `memory` — array of notable interactions in this book
-
-Trust and memory are earned within a book. They do not automatically transfer.
-
-### City-Native Rule
-
-NPCs belong to a city. Dariush is Tehran. He does not appear in Costa Rica unless he travels there.
+Per-dive. Changes every hand.
+```json
+{ "id": "dariush", "scope": "book", "trust": "neutral", "memory": [] }
+```
+For dive-level NPCs, include full identity inline.
 
 ### Travel
 
-An NPC can travel. When they do:
-- Their identity file stays in their home city (`npcs/tehran/dariush.md`)
-- Add them to the visiting book's `state/npcs.json` with `"home_city": "tehran", "visiting": true`
-- Their memories from their home book travel with them — they know you from context
-- They build new memories in the visiting book independently
-- Their speech, habits, and personality are unchanged. The context is new. They notice it.
+When a book-level NPC travels to another city:
+- Identity file stays in home city
+- Add to visiting dive's `npcs.json` with `"home_city": "tehran", "visiting": true`
+- Home dive memories travel with them
+- They build new memories in the visiting context independently
 
 ### NPC Identity File Format
 
@@ -477,10 +448,10 @@ An NPC can travel. When they do:
 [2–3 sentences. Specific, not generic.]
 
 ## Speech Patterns
-[How they talk. Formal/informal, direct/indirect, humor style, any verbal tics.]
+[Formal/informal, direct/indirect, humor style, verbal tics.]
 
 ## Background
-[Brief. What shaped them. Relevant to how they show up at work or in daily life.]
+[Brief. What shaped them. Relevant to how they show up.]
 
 ## Relationships
 [Other NPCs they know, and how.]
@@ -492,9 +463,11 @@ An NPC can travel. When they do:
 
 - Do NOT load all knowledge simultaneously. Compose a lean, relevant context each hand.
 - `knowledge/` files are the weights — durable, annotated, slow to change.
-- `world/news_cache.json` is the context window — ephemeral, injected at runtime.
-- NPCs reference news naturally, as a colleague would — not as a bulletin.
-- Cultural moments emerge from `knowledge/culture/` — they are not explained to the player, they are lived.
+- `news_cache.json` is the context window — ephemeral, injected at runtime, never stored as truth.
+- `log.md` is the shape of the story so far. The last review is the fine detail.
+- NPCs reference news and gossip naturally — as a colleague would, not as a bulletin.
+- Cultural moments emerge from `knowledge/culture/` — lived, not explained.
 - Vocabulary surfaces in NPC dialogue and environment — never as a quiz.
-- The narrative_register governs voice throughout. It is never broken unless the player changes mode.
+- The narrative_register governs voice throughout. Never broken unless the player changes mode.
 - City colors everything: dialect, NPC names, news relevance, cultural blend.
+- Build things any capable AI can follow. No Claude-specific logic.
