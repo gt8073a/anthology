@@ -159,7 +159,7 @@ def collect_files(target: Path) -> list[Path]:
         "books": "*/dlc.md",
         "includes": "*/include.md",
         "overlays": "*/overlay.md",
-        "companions": "*/dlc.md",
+        "assets/companions": "*/dlc.md",
     }
     files = []
     for folder, pattern in patterns.items():
